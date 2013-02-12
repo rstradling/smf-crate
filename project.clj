@@ -1,4 +1,4 @@
-(defproject smf-crate "0.1.0-SNAPSHOT"
+(defproject smf-crate "0.1.0"
   :description "Provides pallet commands to create an smf service"
   :url "https://github.com/rstradling/smf-crate"
   :license {:name "Eclipse Public License"
