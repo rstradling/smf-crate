@@ -52,9 +52,8 @@ To run the live-test sample you will need to do the following...
 }
 ```
 * Run the test with the below
-```bash
-lein with-profile live-test test :live-test
-```
+    lein with-profile live-test test :live-test
+
 
 ## License
 
