@@ -9,21 +9,25 @@ A Clojure library designed to work with pallet to create an smf file.  It is spe
 Artifacts are [released to Clojars](https://clojars.org/strad/smf-crate.  If you are using Maven, add the following definition to your `pom.xml`:
 ```xml
 <repository>
- <id>clojuars.org</id>
+ <id>clojars.org</id>
  <url>http://clojars.org/repo</url>
 </repository>
 ```
 
 ### The Most Recent Release
 With Leiningen
+```clojure
    [org.clojars.strad/smf-crate "0.1.0"]
+```
 
 With Maven
+```xml
    <dependency>
       <groupId>org.clojars.strad</groupId>
-      <artifactId>monger</artifactId>
-      <version>1.4.2</version>
+      <artifactId>smf-crate</artifactId>
+      <version>0.1.0</version>
    </dependency>
+```
 
 ```clojure
   (def smf-data (create-smf "<category>" "<name of service>" "<version>" "run command" "user" "group"))
@@ -45,9 +49,10 @@ To run the live-test sample you will need to do the following...
 }
 ```
 run the tests by typing in 
-```bash
+```
 lein with-profile live-test test :live-test
 ```
+
 ## License
 
 Copyright © 2013 Ryan Stradling
