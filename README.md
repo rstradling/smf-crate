@@ -42,7 +42,7 @@ With Maven
 ### Live test
 To run the live-test sample you will need to do the following...
 * Create a local smartos image where root can log in to it.
-* Update your ~/pallet/config.clj to have the 
+* Update your ~/pallet/config.clj to have the following 
 
 ```clojure
 {:datacenter {:provider "node-list"
@@ -51,7 +51,7 @@ To run the live-test sample you will need to do the following...
         }
 }
 ```
-
+* Run the test with the below
 ```bash
 lein with-profile live-test test :live-test
 ```
