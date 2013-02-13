@@ -46,9 +46,6 @@ run the tests by typing in
 ```bash
 lein with-profile live-test test :live-test
 ```
-
-FIXME
-
 ## License
 
 Copyright © 2013 Ryan Stradling
