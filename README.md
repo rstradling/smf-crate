@@ -6,7 +6,7 @@ A Clojure library designed to work with pallet to create an smf file.  It is spe
 [![Build Status](https://travis-ci.org/rstradling/smf-crate.png)](https://travis-ci.org/rstradling/smf-crate])
 
 ## Usage
-Artifacts are [released to Clojars](https://clojars.org/strad/smf-crate.  If you are using Maven, add the following definition to your `pom.xml`:
+Artifacts are [released to Clojars](https://clojars.org/strad/smf-crate).  If you are using Maven, add the following definition to your `pom.xml`:
 ```xml
 <repository>
  <id>clojars.org</id>
@@ -39,16 +39,19 @@ With Maven
   ;; temporary file on exit of the application or not.
 ```
 
+### Live test
 To run the live-test sample you will need to do the following...
 * Create a local smartos image where root can log in to it.
 * Update your ~/pallet/config.clj to have the 
 ```clojure
 {:datacenter {:provider "node-list"
-	:node-list [["<machine-name>" "smartos-testing" "<ip address> :smartos]]
+	:node-list [["<machine-name>" "smartos-testing" 
+			"<ip address>" :smartos]]
         }
 }
+
 ```
-run the tests by typing in 
+* run the tests by typing in 
 ```
 lein with-profile live-test test :live-test
 ```
