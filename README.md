@@ -29,7 +29,9 @@ With Maven
   (def smf-data (create-smf "<category>" "<name of service>" "<version>" "run command" "user" "group"))
   (install-smf-service session smf-data "<remote location of smf file>" <true|false>) 
   ;; Please see the source code for options that can be passed in and overridden
-  ;; Also note that the true or false parameter represents whether to remove the
+  ;; for smf-data.
+  ;; Also note that the true or false parameter for install-smf-service 
+  ;; represents whether to remove the
   ;; temporary file on exit of the application or not.
 ```
 
