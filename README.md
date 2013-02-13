@@ -51,7 +51,7 @@ To run the live-test sample you will need to do the following...
 }
 
 ```
-* run the tests by typing in 
+
 ```
 lein with-profile live-test test :live-test
 ```
