@@ -51,9 +51,10 @@ To run the live-test sample you will need to do the following...
         }
 }
 ```
-* Run the test with the below
-    lein with-profile live-test test :live-test
-
+* Run the test with
+```
+lein with-profile live-test test :live-test
+```
 
 ## License
 
