@@ -12,8 +12,16 @@
   pallet.crate.smf
   (:require [clojure.data.xml :as xml]
             [clojure.java.io :as io]
-            [pallet.action.exec-script :as exec-script]
-            [pallet.action.remote-file :as remote-file]))
+            [clojure.tools.logging :refer [debugf]]
+            [pallet.actions :refer [exec-checked-script remote-file plan-when
+                                    plan-when-not assoc-in-settings]]
+            [pallet.api :as api]
+            [pallet.crate :as crate]
+            [pallet.crate.service :as service]
+            [pallet.stevedore :as stevedore]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ## Manifest
 
 (def stable-set #{ :Standard :Stable :Evolving :Unstable :External :Obsolete})
 (def proc-mgmt-model #{:wait :contract :transient})
@@ -80,7 +88,7 @@
    that have defaults.  By default opts values are
    :instance-name \"default\"
    :config-file \"\"
-   :stop-command :kill 
+   :stop-command :kill
    :process-management \"wait\"
    :network? true Whether this smf file depends upon the network already running
    :enabled? false Whether the service is enabled by default
@@ -105,7 +113,7 @@
          (create-method "start" start-command timeout)
          (create-method "stop" stop-command timeout)
          (create-property-group-startd (name process-management))
-         (create-property-group-application)         
+         (create-property-group-application)
          [:stability {:value (name stability-value)}]]]))
   ([service-category service-name service-version start-command user group]
      (create-smf service-category service-name service-version start-command
@@ -134,22 +142,83 @@
         (.write wrtr line)))
     (.getAbsolutePath temp)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ## Service Supervisor
+
+(defmethod service/service-supervisor-available? :smf
+  [_]
+  true)
+
+(defmethod service/service-supervisor-config :smf
+  [_
+   {:keys [service-name manifest-data manifest-path] :as service-options}
+   {:keys [instance-id] :as options}]
+  {:pre [service-name manifest-data manifest-path]}
+  (debugf "Adding service settings for %s" service-name)
+  (assoc-in-settings [:smf :services service-name] service-options))
+
+(defn- svcadm
+  [service-name action]
+  {:pre [service-name action]}
+  (exec-checked-script
+   (str "SMF " (name action) " " service-name)
+   ("/usr/sbin/svcadm" ~(name action) ~service-name)))
+
+(def ^:private init->smf-action
+  {:start   :enable
+   :stop    :disable
+   :enable  :enable
+   :restart :restart})
+
+(defmethod service/service-supervisor :smf
+  [_
+   {:keys [service-name]}
+   {:keys [action if-flag instance-id]
+    :or {action :start}
+    :as options}]
+  {:pre [service-name action]}
+  (println "action:" action)
+  (assert (not (contains? options :if-stopped))
+          "SMF does not support the concept of if-stopped")
+  (let [smf-action (init->smf-action action)]
+    (if if-flag
+      (plan-when (crate/target-flag? if-flag)
+        (svcadm service-name smf-action))
+      (svcadm service-name smf-action))))
+
+(defn- service-configured?
+  [service-name]
+  (stevedore/fragment ("/usr/bin/svcs" ~service-name "2&>" "/dev/null")))
 
 (defn install-smf-service
-  [session smf-data remote-path & [delete-temp-file?]]
-  (-> session
-   (remote-file/remote-file remote-path :local-file (write-smf smf-data delete-temp-file?))
-   (exec-script/exec-checked-script
-    (str "install the service " remote-path)
-    ("svccfg validate " ~remote-path)
-    ("svccfg import " ~remote-path))))
+  [smf-data remote-path & [delete-temp-file?]]
+  (remote-file remote-path
+               :local-file (write-smf smf-data delete-temp-file?))
+  (exec-checked-script
+   (str "install SMF service " remote-path)
+   ("svccfg validate " ~remote-path)
+   ("svccfg import " ~remote-path)))
 
 (defn delete-smf-service
   "Delete the specified smf service.  If force is true it will force delete the service"
-  [session smf-name force?]
-  (let [
-        command (if force? "svccfg delete -f " "svccfg delete ")]
-    (-> session
-        (exec-script/exec-checked-script
-         (str "Delete the service " smf-name)
-         (~command ~smf-name)))))
+  [smf-name force?]
+  (let [command (if force? "svccfg delete -f " "svccfg delete ")]
+    (exec-checked-script
+     (str "Delete the service " smf-name)
+     (~command ~smf-name))))
+
+(defn configure
+  "Install the manifest file for each configured service so that
+  services can be managed by smf"
+  [{:keys [instance-id] :as options}]
+  (let [services (:services (crate/get-settings :smf {:instance-id instance-id}))]
+    (println "got my services" services)
+    (doseq [[service-name service-options] services]
+      (let [{:keys [manifest-data manifest-path]} service-options]
+        (plan-when-not (service-configured? service-name)
+          (install-smf-service manifest-data manifest-path))))))
+
+(defn server-spec
+  [& {:keys [instance-id] :as options}]
+  (api/server-spec
+   :phases {:configure (api/plan-fn (configure options))}))
