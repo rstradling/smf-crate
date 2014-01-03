@@ -14,11 +14,12 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :refer [debugf]]
             [pallet.actions :refer [exec-checked-script remote-file plan-when
-                                    plan-when-not assoc-in-settings]]
+                                    plan-when-not assoc-in-settings directory]]
             [pallet.api :as api]
             [pallet.crate :as crate]
             [pallet.crate.service :as service]
-            [pallet.stevedore :as stevedore]))
+            [pallet.stevedore :as stevedore]
+            [pallet.utils :refer [apply-map]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## Manifest
@@ -74,7 +75,7 @@
 
 (def smf-defaults {:multiple-instances? false :instance-name "default"
                     :config-file "" :stop-command :kill
-                    :process-management :wait :network? true
+                    :process-management :child :network? true
                    :enabled? false :timeout 60 :stability-value :Evolving
                    :working-dir nil})
 
@@ -149,13 +150,23 @@
   [_]
   true)
 
+(defn- default-service-options
+  []
+  {:user (:username (crate/admin-user))
+   :group (:username (crate/admin-user))})
+
 (defmethod service/service-supervisor-config :smf
   [_
-   {:keys [service-name manifest-data manifest-path] :as service-options}
+   {:keys [service-name init-file manifest-data manifest-path] :as service-options}
    {:keys [instance-id] :as options}]
-  {:pre [service-name manifest-data manifest-path]}
+  {:pre [service-name
+         (or manifest-data init-file)
+         (not (and manifest-data init-file))]}
   (debugf "Adding service settings for %s" service-name)
-  (assoc-in-settings [:smf :services service-name] service-options))
+  (assoc-in-settings [:smf :method-dir] "/opt/custom/bin")
+  (assoc-in-settings [:smf :services service-name]
+                     (merge (default-service-options)
+                            service-options)))
 
 (defn- svcadm
   [service-name action]
@@ -196,8 +207,8 @@
                :local-file (write-smf smf-data delete-temp-file?))
   (exec-checked-script
    (str "install SMF service " remote-path)
-   ("svccfg validate " ~remote-path)
-   ("svccfg import " ~remote-path)))
+   ("/usr/sbin/svccfg validate " ~remote-path)
+   ("/usr/sbin/svccfg import " ~remote-path)))
 
 (defn delete-smf-service
   "Delete the specified smf service.  If force is true it will force delete the service"
@@ -207,16 +218,56 @@
      (str "Delete the service " smf-name)
      (~command ~smf-name))))
 
+(defn get-init-file-path
+  [settings service-name]
+  (let [method-dir (:method-dir settings)]
+    (str method-dir "/" service-name)))
+
+(defmulti install-service
+  (fn [settings service-name service-options]
+    (if (:init-file service-options)
+      :init-file
+      :smf-data)))
+
+(defmethod install-service :init-file
+  [settings service-name service-options]
+  (let [init-file-path (get-init-file-path settings service-name)
+        smf-data (create-smf (:service-category service-options)
+                             service-name
+                             (:version service-options)
+                             init-file-path
+                             (:user service-options)
+                             (:group service-options)
+                             (:options service-options))]
+
+    (apply-map remote-file
+               init-file-path
+               :mode "0755"
+               :owner "root"
+               :group "root"
+               :literal true
+               (:init-file service-options))
+    (install-smf-service smf-data
+                         (str "/tmp/" service-name "-manifest.xml"))))
+
+(defmethod install-service :smf-data
+  [service-name service-options]
+  (install-smf-service (:manifest-data service-options)
+                       (:manifest-path service-options)))
+
 (defn configure
   "Install the manifest file for each configured service so that
   services can be managed by smf"
   [{:keys [instance-id] :as options}]
-  (let [services (:services (crate/get-settings :smf {:instance-id instance-id}))]
+
+  (let [settings (crate/get-settings :smf {:instance-id instance-id})
+        services (:services settings)]
+    (directory (:method-dir settings))
     (println "got my services" services)
     (doseq [[service-name service-options] services]
-      (let [{:keys [manifest-data manifest-path]} service-options]
-        (plan-when-not (service-configured? service-name)
-          (install-smf-service manifest-data manifest-path))))))
+      (install-service settings service-name service-options)
+      #_(plan-when-not (service-configured? service-name)
+        (install-service settings service-name service-options)))))
 
 (defn server-spec
   [& {:keys [instance-id] :as options}]
