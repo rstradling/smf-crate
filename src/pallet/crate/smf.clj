@@ -73,11 +73,17 @@
   (with-open [r (io/reader fname)]
     (doall (line-seq r))))
 
-(def smf-defaults {:multiple-instances? false :instance-name "default"
-                    :config-file "" :stop-command :kill
-                    :process-management :child :network? true
-                   :enabled? false :timeout 60 :stability-value :Evolving
-                   :working-dir nil})
+(defn- smf-defaults
+  {:multiple-instances? false
+   :instance-name "default"
+   :config-file ""
+   :stop-command :kill
+   :process-management :child
+   :network? true
+   :enabled? false
+   :timeout 60
+   :stability-value :Evolving
+   :working-dir nil})
 
 
 (defn create-smf
@@ -97,11 +103,25 @@
    :working-dir nil If this is set to something then the working directory of the method context
                     will be set to this working directory
    "
-  ([service-category service-name service-version start-command user group opts]
+  ([service-category
+    service-name
+    service-version
+    start-command
+    user
+    group
+    opts]
      (let [merged (merge smf-defaults opts)
-           {:keys [multiple-instances? instance-name config-file stop-command
-                   process-management network? enabled? timeout
-                   stability-value working-dir]} merged]
+           {:keys [multiple-instances?
+                   instance-name
+                   config-file
+                   start-command
+                   stop-command
+                   process-management
+                   network?
+                   enabled?
+                   timeout
+                   stability-value
+                   working-dir]} merged]
        [:service_bundle {:type "manifest" :name service-name}
         [:service {:name (str service-category "/" service-name)
                    :type "service"
@@ -235,7 +255,7 @@
         smf-data (create-smf (:service-category service-options)
                              service-name
                              (:version service-options)
-                             init-file-path
+                             (str init-file-path " start")
                              (:user service-options)
                              (:group service-options)
                              (:options service-options))]
