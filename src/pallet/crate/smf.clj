@@ -9,7 +9,7 @@
                  "http://www.oracle.com/technetwork/server-storage/solaris/solaris-smf-manifest-wp-167902.pdf"
                  "Manifold Examle" "http://chrismiles.livejournal.com/26279.html" ]
       }
-  eReceipts.pallet.crates.smf
+  pallet.crate.smf
   (:require [clojure.data.xml :as xml]
             [clojure.java.io :as io]
             [clojure.tools.logging :refer [debugf]]
