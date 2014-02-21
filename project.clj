@@ -1,6 +1,6 @@
-(defproject org.clojars.strad/smf-crate "0.2.0-SNAPSHOT"
-  :description "Provides pallet commands to create an smf service"
-  :url "https://github.com/rstradling/smf-crate"
+(defproject com.walmartlabs/smf-crate "0.1.0-SNAPSHOT"
+  :description "Provides pallet commands to create an smf service. Originally forked from https://github.com/rstradling/smf-crate"
+  :url "https://github.com/walmartlabs/smf-crate"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
