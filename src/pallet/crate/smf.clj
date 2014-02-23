@@ -274,13 +274,15 @@
    service-options]
   (let [init-file-path (get-init-file-path settings service-name)
         start-command (str init-file-path " start")
+        stop-command (str init-file-path " stop")
         manifest-xml (create-manifest-xml (:service-category service-options)
                                           service-name
                                           (:version service-options)
                                           start-command
                                           (:user service-options)
                                           (:group service-options)
-                                          (:options service-options))
+                                          (assoc (:options service-options)
+                                            :stop-command stop-command))
         manifest-path (str (:manifest-dir settings) "/" service-name "-manifest.xml")]
     (apply-map remote-file
                init-file-path
