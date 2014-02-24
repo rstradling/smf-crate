@@ -206,19 +206,30 @@
 
 (defn- perform-service-action
   [service-name
-   action]
+   action
+   {:keys [wait-until-started] :as options}]
   {:pre [(string? service-name)
          (keyword? action)]}
-  (let [action-name (name action)]
+  (let [action-name (name action)
+        wait-until-started-string (if wait-until-started
+                                    "-s"
+                                    "")]
     (exec-checked-script
-     (str "running SMF service action " action-name " on " service-name)
-     ("svcadm" ~action-name ~service-name))))
+     (format "running SMF service action %s on %s %s"
+             action-name
+             service-name
+             wait-until-started-string)
+     ("svcadm"
+      ~action-name
+      ~wait-until-started-string
+      ~service-name))))
 
 (defmethod service/service-supervisor :smf
   [_
    {:keys [service-name]}
-   {:keys [action if-flag instance-id]
-    :or {action :start}
+   {:keys [action if-flag instance-id wait-until-started]
+    :or {action :start
+         wait-until-started false}
     :as options}]
   {:pre [service-name action]}
   (assert (not (contains? options :if-stopped))
@@ -226,8 +237,12 @@
   (let [smf-action (init->smf-action action)]
     (if if-flag
       (plan-when (crate/target-flag? if-flag)
-        (perform-service-action service-name smf-action))
-      (perform-service-action service-name smf-action))))
+        (perform-service-action service-name
+                                smf-action
+                                {:wait-until-started wait-until-started}))
+      (perform-service-action service-name
+                              smf-action
+                              {:wait-until-started wait-until-started}))))
 
 
 (defn install-smf-service
