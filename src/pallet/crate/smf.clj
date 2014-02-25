@@ -220,12 +220,23 @@
              action-name
              service-name
              wait-until-started-string)
-     ("svcs" ~service-name "|" "grep" "maintenance")
-     (defvar SVC_STATE @(println $?))
-     (if (= 0 $SVC_STATE)
+     ;; If the service is in maintenance mode, we need to clear that
+     ;; fact before enabling, however clear doesn't offer a -s option,
+     ;; so we disable instead
+     (when (= "maintenance" @("svcs" -H -o "STATE" ~service-name))
        ("svcadm"
-        "clear"
-        ~service-name)
+        "disable"
+        ~service-name))
+     ;; svcadm restart doesn't offer a -s option, so we disable and
+     ;; re-enable
+     (if (= "restart" ~(name action))
+       (chain-and ("svcadm"
+                   "disable"
+                   ~service-name)
+                  ("svcadm"
+                   "enable"
+                   ~wait-until-started-string
+                   ~service-name))
        ("svcadm"
         ~action-name
         ~wait-until-started-string
@@ -319,9 +330,10 @@
                          manifest-path)))
 
 (defmethod install-service :manifest-xml
-  [service-name service-options]
-  (install-smf-service (:manifest-data service-options)
-                       (:manifest-path service-options)))
+  [settings service-name service-options]
+  (let [manifest-path (str (:manifest-dir settings) "/" service-name "-manifest.xml")]
+    (install-smf-service (:manifest-data service-options)
+                         manifest-path)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
