@@ -18,7 +18,7 @@
             [pallet.api :as api]
             [pallet.crate :as crate]
             [pallet.crate.service :as service]
-            [pallet.stevedore :as stevedore]
+            [pallet.stevedore :refer [with-script-language script]]
             [pallet.utils :refer [apply-map]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -198,7 +198,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## Pallet service-supervisor actions
 
-(def ^:private init->smf-action
+(def ^:private
+  pallet-action->smf-action
   {:start   :enable
    :stop    :disable
    :enable  :enable
@@ -219,10 +220,16 @@
              action-name
              service-name
              wait-until-started-string)
-     ("svcadm"
-      ~action-name
-      ~wait-until-started-string
-      ~service-name))))
+     ("svcs" ~service-name "|" "grep" "maintenance")
+     (defvar SVC_STATE @(println $?))
+     (if (= 0 $SVC_STATE)
+       ("svcadm"
+        "clear"
+        ~service-name)
+       ("svcadm"
+        ~action-name
+        ~wait-until-started-string
+        ~service-name)))))
 
 (defmethod service/service-supervisor :smf
   [_
@@ -234,16 +241,17 @@
   {:pre [service-name action]}
   (assert (not (contains? options :if-stopped))
           "SMF does not support the concept of if-stopped")
-  (let [smf-action (init->smf-action action)]
+  (let [perform-action-fn #(perform-service-action service-name
+                                                   (pallet-action->smf-action action)
+                                                   {:wait-until-started wait-until-started})]
     (if if-flag
       (plan-when (crate/target-flag? if-flag)
-        (perform-service-action service-name
-                                smf-action
-                                {:wait-until-started wait-until-started}))
-      (perform-service-action service-name
-                              smf-action
-                              {:wait-until-started wait-until-started}))))
+                 (perform-action-fn))
+      (perform-action-fn))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ## Install a new SMF Service
 
 (defn install-smf-service
   "install the new SMF manifest"
@@ -328,10 +336,6 @@
         services (:services settings)]
     (directory (:method-dir settings))
     (directory (:manifest-dir settings))
-
-    (println "services settings /")
-    (clojure.pprint/pprint services)
-    (println "/")
 
     (doseq [[service-name service-options] services]
       (install-service settings
