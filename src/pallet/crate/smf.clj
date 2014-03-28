@@ -67,12 +67,11 @@
    user
    group
    & {:keys [project]}]
-  (if working-dir
-    [:method_context (cond-> {:working_directory working-dir}
-                             project (assoc :project project))
-     [:method_credential
-      {:user user :group group}]]
-    [:method_context [:method_credential {:user user :group group}]]))
+  [:method_context
+   (cond-> {}
+           working-dir (assoc :working_directory working-dir)
+           project (assoc :project project))
+   [:method_credential {:user user :group group}]])
 
 (defn get-lines [fname]
   (with-open [r (io/reader fname)]
