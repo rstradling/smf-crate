@@ -63,10 +63,15 @@
   [:create_default_instance {:enabled enabled?}])
 
 (defn- create-method-context
-  [working-dir user group]
+  [working-dir
+   user
+   group
+   & {:keys [project]}]
   (if working-dir
-    [:method_context {:working_directory working-dir} [:method_credential
-                                                       {:user user :group group}]]
+    [:method_context (cond-> {:working_directory working-dir}
+                             project (assoc :project project))
+     [:method_credential
+      {:user user :group group}]]
     [:method_context [:method_credential {:user user :group group}]]))
 
 (defn get-lines [fname]
@@ -120,6 +125,7 @@
                    enabled?
                    timeout
                    stability-value
+                   project
                    working-dir]} merged]
 
        [:service_bundle {:type "manifest" :name service-name}
@@ -130,7 +136,7 @@
          (create-single-instance? multiple-instances?)
          (create-network-dependency network?)
          (create-file-dependency true)
-         (create-method-context working-dir user group)
+         (create-method-context working-dir user group :project project)
          (create-method "start" start-command timeout)
          (create-method "stop" stop-command timeout)
          (create-property-group-startd (name process-management))
