@@ -66,12 +66,13 @@
   [working-dir
    user
    group
-   & {:keys [project]}]
+   & {:keys [project privileges]}]
   [:method_context
    (cond-> {}
            working-dir (assoc :working_directory working-dir)
            project (assoc :project project))
-   [:method_credential {:user user :group group}]])
+   [:method_credential (cond-> {:user user :group group}
+                               privileges (assoc :privileges privileges))]])
 
 (defn get-lines [fname]
   (with-open [r (io/reader fname)]
@@ -125,6 +126,7 @@
                    timeout
                    stability-value
                    project
+                   privileges
                    working-dir]} merged]
 
        [:service_bundle {:type "manifest" :name service-name}
@@ -135,7 +137,9 @@
          (create-single-instance? multiple-instances?)
          (create-network-dependency network?)
          (create-file-dependency true)
-         (create-method-context working-dir user group :project project)
+         (create-method-context working-dir user group
+                                :project project
+                                :privileges privileges)
          (create-method "start" start-command timeout)
          (create-method "stop" stop-command timeout)
          (create-property-group-startd (name process-management))
