@@ -50,6 +50,14 @@
    [:propval {:name "duration" :type "astring" :value proc-mgmt}]
    [:propval {:name "ignore_error" :type "astring" :value "core,signal"}]])
 
+(defn- create-property-group-general
+  [properties]
+  (when properties
+    [:property_group {:name "general" :type "framework"}
+     (map (fn [{:keys [name value type] :as prop}]
+            [:propval prop])
+          properties)]))
+
 (defn- create-property-group-application
   []
   [:property_group {:name "application" :type "application"}])
@@ -63,11 +71,16 @@
   [:create_default_instance {:enabled enabled?}])
 
 (defn- create-method-context
-  [working-dir user group]
-  (if working-dir
-    [:method_context {:working_directory working-dir} [:method_credential
-                                                       {:user user :group group}]]
-    [:method_context [:method_credential {:user user :group group}]]))
+  [working-dir
+   user
+   group
+   & {:keys [project privileges]}]
+  [:method_context
+   (cond-> {}
+           working-dir (assoc :working_directory working-dir)
+           project (assoc :project project))
+   [:method_credential (cond-> {:user user :group group}
+                               privileges (assoc :privileges privileges))]])
 
 (defn get-lines [fname]
   (with-open [r (io/reader fname)]
@@ -120,7 +133,10 @@
                    enabled?
                    timeout
                    stability-value
-                   working-dir]} merged]
+                   project
+                   privileges
+                   working-dir
+                   general-property-group]} merged]
 
        [:service_bundle {:type "manifest" :name service-name}
         [:service {:name (str service-category "/" service-name)
@@ -130,10 +146,13 @@
          (create-single-instance? multiple-instances?)
          (create-network-dependency network?)
          (create-file-dependency true)
-         (create-method-context working-dir user group)
+         (create-method-context working-dir user group
+                                :project project
+                                :privileges privileges)
          (create-method "start" start-command timeout)
          (create-method "stop" stop-command timeout)
          (create-property-group-startd (name process-management))
+         (create-property-group-general general-property-group)
          (create-property-group-application)
          [:stability {:value (name stability-value)}]]]))
 
@@ -334,7 +353,6 @@
   (let [manifest-path (str (:manifest-dir settings) "/" service-name "-manifest.xml")]
     (install-smf-service (:manifest-data service-options)
                          manifest-path)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## pallet configure phase
