@@ -50,6 +50,14 @@
    [:propval {:name "duration" :type "astring" :value proc-mgmt}]
    [:propval {:name "ignore_error" :type "astring" :value "core,signal"}]])
 
+(defn- create-property-group-general
+  [properties]
+  (when properties
+    [:property_group {:name "general" :type "framework"}
+     (map (fn [{:keys [name value type] :as prop}]
+            [:propval prop])
+          properties)]))
+
 (defn- create-property-group-application
   []
   [:property_group {:name "application" :type "application"}])
@@ -127,7 +135,8 @@
                    stability-value
                    project
                    privileges
-                   working-dir]} merged]
+                   working-dir
+                   general-property-group]} merged]
 
        [:service_bundle {:type "manifest" :name service-name}
         [:service {:name (str service-category "/" service-name)
@@ -143,6 +152,7 @@
          (create-method "start" start-command timeout)
          (create-method "stop" stop-command timeout)
          (create-property-group-startd (name process-management))
+         (create-property-group-general general-property-group)
          (create-property-group-application)
          [:stability {:value (name stability-value)}]]]))
 
@@ -343,7 +353,6 @@
   (let [manifest-path (str (:manifest-dir settings) "/" service-name "-manifest.xml")]
     (install-smf-service (:manifest-data service-options)
                          manifest-path)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## pallet configure phase
