@@ -171,20 +171,15 @@
                           {})))
 
 (defn- get-service-manifest-content
-  "build SMF manifest XML file content"
-  [smf-data
-   & [delete-temp-file?]]
+  "build SMF manifest XML file content by specifically inserting the
+   DOCTYPE declaration just after the <?xml?> declaration"
+  [smf-data]
   (let [smf-xml (xml/indent-str (xml/sexp-as-element smf-data))
-        ;; Cannot easily add a doctype so have to process the header.
-        ;; Insert the DOCTYPE, and then insert the rest
-        lines (clojure.string/split-lines smf-xml)
-        first-line (first lines)
-        rest-lines (subvec lines 1)]
-    (clojure.string/join "\n"
-                         (apply vector
-                                (str first-line "\n")
-                                "<!DOCTYPE service_bundle SYSTEM \"/usr/share/lib/xml/dtd/service_bundle.dtd.1\">"
-                                rest-lines))))
+        xml-version-string "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        doctype-string "<!DOCTYPE service_bundle SYSTEM \"/usr/share/lib/xml/dtd/service_bundle.dtd.1\">"]
+    (clojure.string/replace-first smf-xml
+                                  xml-version-string
+                                  (str xml-version-string "\n" doctype-string "\n"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## Service Supervisor
@@ -289,7 +284,7 @@
    remote-path]
   (remote-file remote-path
                :literal true
-               :content (get-service-manifest-content smf-data true))
+               :content (get-service-manifest-content smf-data))
   (exec-checked-script
    (str "install smf service")
    ("svccfg validate " ~remote-path)
