@@ -201,12 +201,9 @@
          (or manifest-data init-file)
          (not (and manifest-data init-file))]}
   (debugf "Adding service settings for %s" service-name)
-  (assoc-in-settings [:smf :method-dir] "/opt/custom/bin")
-  (assoc-in-settings [:smf :manifest-dir] "/opt/custom/smf")
   (assoc-in-settings [:smf :services service-name]
                      (merge (default-service-options)
                             service-options)))
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,7 +275,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## Install a new SMF Service
 
-(defn install-smf-service
+(defn import-service-manifest
   "install the new SMF manifest"
   [smf-data
    remote-path]
@@ -340,24 +337,39 @@
                :literal true
                (:init-file service-options))
 
-    (install-smf-service manifest-xml
-                         manifest-path)))
+    (import-service-manifest manifest-xml
+                             manifest-path)))
 
 (defmethod install-service :manifest-xml
   [settings service-name service-options]
   (let [manifest-path (str (:manifest-dir settings) "/" service-name "-manifest.xml")]
-    (install-smf-service (:manifest-data service-options)
-                         manifest-path)))
+    (import-service-manifest (:manifest-data service-options)
+                             manifest-path)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ## pallet configure phase
+
+(defn- make-core-settings
+  []
+  {:method-dir "/opt/custom/bin"
+   :manifest-dir "/opt/custom/smf"})
+
+(defn get-smf-settings
+  []
+  (merge (make-core-settings)
+         (crate/get-settings :smf)))
+
+(defn install-smf-service
+  [service-name service-options]
+  (install-service (get-smf-settings)
+                   service-name
+                   service-options))
 
 (crate/defplan configure-plan
   "create a new SMF manifest and load it"
   [{:keys [instance-id] :as options}]
 
-  (let [settings (crate/get-settings :smf
-                                     {:instance-id instance-id})
+  (let [settings (get-smf-settings)
         services (:services settings)]
     (directory (:method-dir settings))
     (directory (:manifest-dir settings))
